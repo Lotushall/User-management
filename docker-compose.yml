@@ -1,0 +1,68 @@
+version: "3.8"
+
+services:
+  # PHP Apache Service
+  app:
+    build: .
+    container_name: ci4-app
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/php/php.ini:/usr/local/etc/php/php.ini
+    depends_on:
+      - database
+    networks:
+      - ci4-network
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+
+  # MySQL Database Service
+  database:
+    image: mysql:8.0
+    container_name: ci4-database
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ci4_db
+      MYSQL_USER: ci4_user
+      MYSQL_PASSWORD: ci4_password
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/my.cnf
+    ports:
+      - "3306:3306"
+    networks:
+      - ci4-network
+
+  # phpMyAdmin Service
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: ci4-phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: database
+      PMA_PORT: 3306
+      PMA_USER: ci4_user
+      PMA_PASSWORD: ci4_password
+    ports:
+      - "8081:80"
+    depends_on:
+      - database
+    networks:
+      - ci4-network
+
+# Networks
+networks:
+  ci4-network:
+    driver: bridge
+
+# Volumes
+volumes:
+  mysql_data:
+    driver: local
