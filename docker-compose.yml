@@ -7,7 +7,7 @@ services:
     container_name: ci4-app
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8090:80"
     volumes:
       - ./:/var/www/html
       - ./docker/php/php.ini:/usr/local/etc/php/php.ini
@@ -28,15 +28,15 @@ services:
     container_name: ci4-database
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: ci4_db
-      MYSQL_USER: ci4_user
-      MYSQL_PASSWORD: ci4_password
+      MYSQL_DATABASE: usermanagement
+      MYSQL_USER: sso_user
+      MYSQL_PASSWORD: sso_password
       MYSQL_ROOT_PASSWORD: root_password
     volumes:
       - mysql_data:/var/lib/mysql
       - ./docker/mysql/my.cnf:/etc/mysql/my.cnf
     ports:
-      - "3306:3306"
+      - "3316:3306"
     networks:
       - ci4-network
 
@@ -48,10 +48,10 @@ services:
     environment:
       PMA_HOST: database
       PMA_PORT: 3306
-      PMA_USER: ci4_user
-      PMA_PASSWORD: ci4_password
+      PMA_USER: sso_user
+      PMA_PASSWORD: sso_password
     ports:
-      - "8081:80"
+      - "8089:80"
     depends_on:
       - database
     networks:
