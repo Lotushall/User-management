@@ -17,61 +17,137 @@ class AuthController extends ResourceController
     public function login()
     {
 
+        $data = $this->request->getJSON(true);
+
         $rules = [
             'username' => 'required',
             'password' => 'required',
             'remember_me' => 'permit_empty|in_list[0,1]'
         ];
 
+        if (!$this->validate($rules, $data)) {
+            return $this->failValidationErrors($this->validator->getErrors());
+        }
 
-        $username = $this->request->getPost('username');
-        $password = $this->request->getPost('password');
-        $rememberMe = (bool) $this->request->getPost('remember_me');
+        $username = $data['username'];
+        $password = $data['password'];
+        $rememberMe = isset($data['remember_me']) ? (bool) $data['remember_me'] : false;
 
         $result = $this->authService->login($username, $password, $rememberMe);
 
         if (!$result) {
-            return $this->fail('Invalid credentials', 401);
+            return $this->respond([
+                'status' => 'error',
+                'message' => 'Invalid credentials'
+            ], 401);
         }
 
         if (isset($result['error'])) {
-            return $this->fail($result['error'], 403);
+            return $this->respond([
+                'status' => 'error',
+                'message' => $result['error']
+            ], 403);
         }
 
-        return $this->respond($result);
+        return $this->respond([
+            'status' => 'success',
+            'data' => $result
+        ], 200);
+    }
+
+    public function validateToken()
+    {
+        try {
+            $authHeader = $this->request->getHeaderLine('Authorization');
+
+            if (!$authHeader) {
+                return $this->respond([
+                    'status' => 'error',
+                    'message' => 'Authorization header is required'
+                ], 401);
+            }
+
+            if (!preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+                return $this->respond([
+                    'status' => 'error',
+                    'message' => 'Invalid authorization format. Use: Bearer <token>'
+                ], 401);
+            }
+
+            $token = $matches[1];
+            $result = $this->authService->validateToken($token);
+
+            if (!$result) {
+                return $this->respond([
+                    'status' => 'error',
+                    'message' => 'Invalid or expired token'
+                ], 401);
+            }
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'Token is valid',
+                'data' => $result
+            ], 200);
+            
+        } catch (\Exception $e) {
+            log_message('error', 'Token validation error: ' . $e->getMessage());
+            return $this->respond([
+                'status' => 'error',
+                'message' => 'An error occurred during token validation'
+            ], 500);
+        }
     }
 
     public function refresh()
     {
-        $refreshToken = $this->request->getPost('refresh_token');
+        $data = $this->request->getJSON(true);
 
-        if (!$refreshToken) {
-            return $this->fail('Refresh token required', 400);
+        if (!isset($data['refresh_token'])) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Refresh token required'
+            ])->setStatusCode(400);
         }
 
-        $result = $this->authService->refreshToken($refreshToken);
+        $result = $this->authService->refreshToken($data['refresh_token']);
 
         if (!$result) {
-            return $this->fail('Invalid or expired refresh token', 401);
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Invalid or expired refresh token'
+            ])->setStatusCode(401);
         }
 
-        return $this->respond($result);
+        return $this->response->setJSON([
+            'status' => 'success',
+            'data' => $result
+        ])->setStatusCode(200);
     }
 
     public function logout()
     {
-        $refreshToken = $this->request->getPost('refresh_token');
+        $data = $this->request->getJSON(true);
 
-        if (!$refreshToken) {
-            return $this->fail('Refresh token required', 400);
+        if (!isset($data['refresh_token'])) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Refresh token required'
+            ])->setStatusCode(400);
         }
 
-        if ($refreshToken) {
-            $this->authService->logout($refreshToken);
-        } else {
-            return $this->fail('Refresh token required', 400);
+        $result = $this->authService->logout($data['refresh_token']);
+
+        if (!$result) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to logout'
+            ])->setStatusCode(500);
         }
 
-        return $this->respond(['message' => 'Logged out successfully']);
+        return $this->response->setJSON([
+            'status' => 'success',
+            'message' => 'Logged out successfully'
+        ])->setStatusCode(200);
     }
 }

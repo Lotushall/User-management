@@ -29,11 +29,14 @@ class AuthService
         $accessToken = generateJWT([
             'user_id' => $user['id'],
             'username' => $user['username']
-        ], 900); 
+        ], 900);
 
         // Generate refresh token
         $refreshTokenExpiry = $rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60; // 30 days if remember me, 7 days otherwise
-        $refreshToken = bin2hex(random_bytes(32));
+        $refreshToken = generateJWT([
+            'user_id' => $user['id'],
+            'type' => 'refresh'
+        ], $refreshTokenExpiry);
 
         // Delete old refresh tokens for this user (optional - for security)
         $this->refreshTokenModel->where('user_id', $user['id'])->delete();
@@ -57,8 +60,39 @@ class AuthService
         ];
     }
 
+    public function ValidateToken($token)
+    {
+        $decodedToken = validateJWT($token);
+
+        if (!$decodedToken) {
+            return false;
+        }
+
+        $user = $this->userModel->find($decodedToken['user_id']);
+
+        if (!$user) {
+            return false;
+        }
+
+        return [
+            'valid' => true,
+            'user' => [
+                'id' => $user['id'],
+                'username' => $user['username'],
+                'expires_in' => $decodedToken['exp']
+            ]
+        ];
+    }
+
     public function refreshToken($refreshToken)
     {
+
+        $decodedToken = validateJWT($refreshToken);
+
+        if (!$decodedToken || !isset($decodedToken['type']) || $decodedToken['type'] !== 'refresh') {
+            return false;
+        }
+
         $tokenData = $this->refreshTokenModel
             ->where('token', $refreshToken)
             ->where('expires_at >', date('Y-m-d H:i:s'))
@@ -69,7 +103,7 @@ class AuthService
         }
 
         $user = $this->userModel->find($tokenData['user_id']);
-        // Generate new access token
+
         $accessToken = generateJWT([
             'user_id' => $user['id'],
             'username' => $user['username']
@@ -88,6 +122,10 @@ class AuthService
 
     public function logout($refreshToken)
     {
+        if (!$refreshToken) {
+            return false;
+        }
+        
         $result = $this->refreshTokenModel->where('token', $refreshToken)->delete();
 
         if (!$result) {
