@@ -52,7 +52,6 @@ class AuthService
             'access_token' => $accessToken,
             'refresh_token' => $refreshToken,
             'expires_in' => 900,
-            'token_type' => 'Bearer',
             'user' => [
                 'id' => $user['id'],
                 'username' => $user['username'],
@@ -112,7 +111,6 @@ class AuthService
         return [
             'access_token' => $accessToken,
             'expires_in' => 900,
-            'token_type' => 'Bearer',
             'user' => [
                 'id' => $user['id'],
                 'username' => $user['username']
